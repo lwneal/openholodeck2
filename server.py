@@ -46,6 +46,7 @@ async def ws():
     print("Client connected:", connection_info)
     print_current_clients()
 
+    await websocket.send(json.dumps({'type': 'client_id', 'id': client_id}))
     await broadcast_clients()
 
     try:
@@ -76,3 +77,4 @@ def print_current_clients():
 
 if __name__ == '__main__':
     app.run(port=8000)
+

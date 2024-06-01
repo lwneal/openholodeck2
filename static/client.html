@@ -32,6 +32,9 @@
                 log('WebSocket message received:', message);
                 if (message.type === 'clients') {
                     await handleClientList(message.clients);
+                } else if (message.type === 'client_id') {
+                    clientId = message.id;
+                    log('Assigned clientId from server:', clientId);
                 } else if (message.sdp) {
                     await handleSDPMessage(message.id, message.sdp);
                 } else if (message.candidate) {
@@ -53,14 +56,6 @@
         }
 
         async function handleClientList(clients) {
-            if (!clientId) {
-                const ownClient = clients.find(client => client.ip === ws._socket.remoteAddress);
-                if (ownClient) {
-                    clientId = ownClient.id;
-                    log('Assigned clientId:', clientId);
-                }
-            }
-            
             const currentClientIds = Object.keys(peerConnections);
             for (const client of clients) {
                 const id = client.id;
