@@ -9,7 +9,7 @@
 
     <script>
         const outputElement = document.getElementById('output');
-        let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {};
+        let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {}, sdpQueue = {};
 
         function log(...args) {
             console.log(...args);
@@ -100,6 +100,18 @@
                     delete peerConnections[id];
                     delete dataChannels[id];
                 }
+
+                // Apply any queued SDP messages once the connection becomes stable
+                if (pc.iceConnectionState === 'completed' || pc.iceConnectionState === 'connected') {
+                    applyQueuedSDP(id);
+                }
+            };
+
+            pc.onsignalingstatechange = () => {
+                log('Signaling state change for', id, pc.signalingState);
+                if (pc.signalingState === 'stable') {
+                    applyQueuedSDP(id);
+                }
             };
 
             return pc;
@@ -114,7 +126,9 @@
                 const pc = peerConnections[id];
                 if (sdp.type === 'offer') {
                     if (pc.signalingState !== 'stable') {
-                        log('Peer connection is not stable, cannot handle offer');
+                        log('Peer connection is not stable, queuing the offer');
+                        if (!sdpQueue[id]) sdpQueue[id] = [];
+                        sdpQueue[id].push({ type: 'offer', sdp });
                         return;
                     }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -130,7 +144,9 @@
                     }
                 } else if (sdp.type === 'answer') {
                     if (pc.signalingState !== 'have-local-offer') {
-                        log('Peer connection does not have local offer, cannot handle answer');
+                        log('Peer connection does not have local offer, queuing the answer');
+                        if (!sdpQueue[id]) sdpQueue[id] = [];
+                        sdpQueue[id].push({ type: 'answer', sdp });
                         return;
                     }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -190,6 +206,22 @@
                 dataChannel.close();
                 setupWebSocket();
             };
+        }
+
+        async function applyQueuedSDP(id) {
+            const pc = peerConnections[id];
+            const queue = sdpQueue[id];
+            if (pc.signalingState === 'stable' && queue && queue.length > 0) {
+                log('Applying queued SDP messages for', id);
+                while (queue.length > 0) {
+                    const { type, sdp } = queue.shift();
+                    if (type === 'offer') {
+                        await handleSDPMessage(id, sdp);
+                    } else if (type === 'answer') {
+                        await handleSDPMessage(id, sdp);
+                    }
+                }
+            }
         }
 
         setupWebSocket();
