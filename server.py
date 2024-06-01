@@ -16,7 +16,8 @@ async def broadcast(data):
     for client in clients:
         try:
             await client.send(data)
-        except:
+        except Exception as e:
+            print(f"Error sending to client {clients[client]}: {str(e)}")
             disconnect_clients.append(client)
     for client in disconnect_clients:
         clients.pop(client, None)
@@ -40,6 +41,7 @@ async def ws():
     try:
         while True:
             message = await websocket.receive()
+            print(f"Received message from client {clients[ws]}: {message}")
             await broadcast(message)
     except asyncio.CancelledError:
         pass

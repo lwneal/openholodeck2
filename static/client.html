@@ -13,6 +13,7 @@
 
         function log(...args) {
             outputElement.textContent += args.join(' ') + '\n';
+            console.log(...args); // Also log to console for debugging in browser dev tools
         }
 
         function setupWebSocket() {
@@ -25,6 +26,7 @@
 
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
+                log('WebSocket message received:', message);
                 if (message.id && message.sdp) {
                     await handleSDPMessage(message.id, message.sdp);
                 } else if (message.id && message.candidate) {
@@ -40,7 +42,7 @@
             };
 
             ws.onerror = error => {
-                log('WebSocket error: ' + error.message);
+                log('WebSocket error:', error.message);
                 ws.close();
             };
         }
@@ -52,18 +54,21 @@
 
             pc.onicecandidate = event => {
                 if (event.candidate) {
+                    log('ICE Candidate generated for', id, event.candidate);
                     ws.send(JSON.stringify({ id: id, 'candidate': event.candidate }));
                 }
             };
 
             pc.ondatachannel = event => {
+                log('Data Channel received from', id);
                 dataChannels[id] = event.channel;
                 setupDataChannel(id);
             };
 
             pc.oniceconnectionstatechange = () => {
+                log('ICE connection state change for', id, pc.iceConnectionState);
                 if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                    log('ICE connection state is disconnected or failed for ' + id + ', closing peer connection');
+                    log('ICE connection state is disconnected or failed for', id, 'closing peer connection');
                     pc.close();
                     delete peerConnections[id];
                     delete dataChannels[id];
@@ -78,16 +83,19 @@
             peerConnections[id] = pc;
 
             if (!dataChannels[id]) {
+                log('Creating Data Channel for', id);
                 dataChannels[id] = pc.createDataChannel('chat');
                 setupDataChannel(id);
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+                log('Sent SDP offer to WebSocket for', id);
             }
         }
 
         async function handleSDPMessage(id, sdp) {
             try {
+                log('Handling SDP message for', id, sdp);
                 if (!peerConnections[id]) {
                     await createConnection(id);
                 }
@@ -97,13 +105,16 @@
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
                     ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+                    log('Sent SDP answer to WebSocket for', id);
 
                     // Add queued ICE candidates
                     while (iceCandidates[id] && iceCandidates[id].length) {
                         await pc.addIceCandidate(new RTCIceCandidate(iceCandidates[id].shift()));
+                        log('Added queued ICE candidate for', id);
                     }
                 } else if (sdp.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                    log('Set remote SDP answer for', id);
                 }
             } catch (e) {
                 log('Error handling SDP message:', e);
@@ -112,14 +123,17 @@
 
         async function handleICECandidate(id, candidate) {
             try {
+                log('Handling ICE candidate for', id, candidate);
                 const pc = peerConnections[id];
                 if (pc && pc.remoteDescription && pc.remoteDescription.type) {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                    log('Added ICE candidate for', id);
                 } else {
                     if (!iceCandidates[id]) {
                         iceCandidates[id] = [];
                     }
                     iceCandidates[id].push(candidate);
+                    log('Queued ICE candidate for', id);
                 }
             } catch (e) {
                 log('Error adding received ICE candidate:', e);
@@ -129,13 +143,14 @@
         function setupDataChannel(id) {
             const dataChannel = dataChannels[id];
             dataChannel.onopen = () => {
-                log('Data Channel Opened with ' + id);
+                log('Data Channel Opened with', id);
                 setInterval(() => {
                     const message = JSON.stringify({ 
                         'userAgent': navigator.userAgent, 
                         'timestamp': new Date().toISOString() 
                     });
                     if (dataChannel.readyState === 'open') {
+                        log('Sending message on Data Channel to', id, message);
                         dataChannel.send(message);
                     }
                 }, 5000);
@@ -147,11 +162,11 @@
             };
 
             dataChannel.onclose = () => {
-                log('Data Channel Closed with ' + id);
+                log('Data Channel Closed with', id);
             };
 
             dataChannel.onerror = error => {
-                log('Data Channel Error with ' + id + ': ' + error.message);
+                log('Data Channel Error with', id, error.message);
                 dataChannel.close();
                 setupWebSocket();
             };
