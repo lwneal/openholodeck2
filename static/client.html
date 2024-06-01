@@ -69,7 +69,7 @@
                 setupDataChannel(id);
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+                ws.send(JSON.stringify({ id: clientId, 'sdp': pc.localDescription }));
                 log('Sent SDP offer to WebSocket for', id);
             }
         }
@@ -82,7 +82,7 @@
             pc.onicecandidate = event => {
                 if (event.candidate) {
                     log('ICE Candidate generated for', id, event.candidate);
-                    ws.send(JSON.stringify({ id: id, 'candidate': event.candidate }));
+                    ws.send(JSON.stringify({ id: clientId, 'candidate': event.candidate }));
                 }
             };
 
@@ -101,9 +101,12 @@
                     delete dataChannels[id];
                 }
 
-                // Apply any queued SDP messages once the connection becomes stable
-                if (pc.iceConnectionState === 'completed' || pc.iceConnectionState === 'connected') {
-                    applyQueuedSDP(id);
+                if (pc.iceConnectionState === 'connected') {
+                    // Add queued ICE candidates
+                    while (iceCandidates[id] && iceCandidates[id].length) {
+                        pc.addIceCandidate(new RTCIceCandidate(iceCandidates[id].shift()));
+                        log('Added queued ICE candidate for', id);
+                    }
                 }
             };
 
@@ -118,10 +121,6 @@
         }
 
         async function handleSDPMessage(id, sdp) {
-            if (id === clientId) {
-                log('Ignoring SDP message from self');
-                return;
-            }
             try {
                 log('Handling SDP message for', id, sdp);
                 if (!peerConnections[id]) {
@@ -129,30 +128,12 @@
                 }
                 const pc = peerConnections[id];
                 if (sdp.type === 'offer') {
-                    if (pc.signalingState !== 'stable') {
-                        log('Peer connection is not stable, queuing the offer');
-                        if (!sdpQueue[id]) sdpQueue[id] = [];
-                        sdpQueue[id].push({ type: 'offer', sdp });
-                        return;
-                    }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+                    ws.send(JSON.stringify({ id: clientId, 'sdp': pc.localDescription }));
                     log('Sent SDP answer to WebSocket for', id);
-
-                    // Add queued ICE candidates
-                    while (iceCandidates[id] && iceCandidates[id].length) {
-                        await pc.addIceCandidate(new RTCIceCandidate(iceCandidates[id].shift()));
-                        log('Added queued ICE candidate for', id);
-                    }
                 } else if (sdp.type === 'answer') {
-                    if (pc.signalingState !== 'have-local-offer') {
-                        log('Peer connection does not have local offer, queuing the answer');
-                        if (!sdpQueue[id]) sdpQueue[id] = [];
-                        sdpQueue[id].push({ type: 'answer', sdp });
-                        return;
-                    }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     log('Set remote SDP answer for', id);
                 }
@@ -162,14 +143,10 @@
         }
 
         async function handleICECandidate(id, candidate) {
-            if (id === clientId) {
-                log('Ignoring ICE candidate from self');
-                return;
-            }
             try {
                 log('Handling ICE candidate for', id, candidate);
                 const pc = peerConnections[id];
-                if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+                if (pc.remoteDescription && pc.remoteDescription.type) {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
                     log('Added ICE candidate for', id);
                 } else {
@@ -212,7 +189,6 @@
             dataChannel.onerror = error => {
                 log('Data Channel Error with', id, error.message);
                 dataChannel.close();
-                setupWebSocket();
             };
         }
 
