@@ -67,23 +67,37 @@ def extract_code_blocks(content):
         code = match[2]
 
         # Heuristics: Try to extract a filename
-        if '/' in preceding_content:
+
+        # Handle cases like:
+        #
+        # # src/server.py
+        # ```
+        #
+        # or
+        #
+        # # src/server.py
+        # ```python
+        if preceding_content:
             final_line = preceding_content.split('\n')[-1]
-            if '/' in final_line or final_line.startswith('#'):
-                filename = final_line.split()[-1]  # TODO: handle filenames w spaces
-                filename = filename.strip('`').strip('*')
-        if not filename and language_indicator not in CODE_BLOCK_LANGUAGES: 
+            potential_filename = final_line.split()[-1].strip('*').strip('`')
+            if os.path.exists(potential_filename):
+                filename = potential_filename
+
+        # Handle the case:
+        #
+        # ```server.py
+        if os.path.exists(language_indicator):
             filename = language_indicator
 
-        if filename:
-            code_blocks.append((filename, code))
-            print("Writing code block length {} to file {}".format(len(code), filename))
-        else:
+        if not filename:
             print("Failed to parse filename from block:")
             print(preceding_content)
             print(language_indicator)
             print(code)
             print("Could not find a filename for code block length {}".format(len(code)))
+            continue
+        code_blocks.append((filename, code))
+        print("Writing code block length {} to file {}".format(len(code), filename))
     return code_blocks
 
 
@@ -114,7 +128,7 @@ def main():
         prompt.append('```')
         prompt.append('')  # Add a newline for separation
 
-    with open('./task.txt', 'w') as task_file:
+    with open('gpt-task.txt', 'w') as task_file:
         task_file.write("### Context:")
         tokens_total = 0
         for file_path in config["files"]:
@@ -126,7 +140,7 @@ def main():
 
     # Open vim to edit ./task.txt
     editor = os.environ.get('EDITOR', 'vim')
-    subprocess.run([editor, './task.txt'])
+    subprocess.run([editor, 'gpt-task.txt'])
     
     # Add task.txt
     prompt.append(read_file_content('./task.txt', "### "))
