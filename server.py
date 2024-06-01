@@ -38,7 +38,8 @@ async def ws():
     print_current_clients()
 
     try:
-        async for message in websocket:
+        while True:
+            message = await websocket.receive()
             await broadcast(message)
     except asyncio.CancelledError:
         pass
