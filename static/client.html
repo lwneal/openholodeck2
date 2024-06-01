@@ -11,8 +11,8 @@
         const outputElement = document.getElementById('output');
         let ws, pc, dataChannel;
 
-        function log(message) {
-            outputElement.textContent += message + '\n';
+        function log(...args) {
+            outputElement.textContent += args.join(' ') + '\n';
         }
 
         function setupWebSocket() {
@@ -27,18 +27,23 @@
                 const message = JSON.parse(event.data);
 
                 if (message.sdp) {
+                    log('Received websocket SDP message')
                     await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
                     if (message.sdp.type === 'offer') {
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
+                        log('Sending websocket SDP offer response:', answer);
                         ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
                     }
                 } else if (message.candidate) {
+                    log('Received websocket ICE candidate message');
                     try {
                         await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
                     } catch (e) {
                         console.error('Error adding received ice candidate', e);
                     }
+                } else {
+                    log('Received unknown message type:', message);
                 }
             };
 
@@ -60,6 +65,7 @@
 
             pc.onicecandidate = event => {
                 if (event.candidate) {
+                    log('Sending ICE candidate ', JSON.stringify(event.candidate));
                     ws.send(JSON.stringify({ 'candidate': event.candidate }));
                 }
             };
@@ -85,7 +91,8 @@
             dataChannel.onopen = () => {
                 log('Data Channel Opened');
                 setInterval(() => {
-                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    let hello = `Hello, my user agent is ${navigator.userAgent} and the current time is ${new Date().toLocaleTimeString()}`;
+                    const message = JSON.stringify({ 'content': hello });
                     if (dataChannel.readyState === 'open') {
                         dataChannel.send(message);
                     }
