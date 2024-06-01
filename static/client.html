@@ -16,7 +16,8 @@
         }
 
         function setupWebSocket() {
-            ws = new WebSocket('ws://' + location.host + '/ws');
+            let proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(proto + '://' + location.host + '/ws');
             
             ws.onopen = () => {
                 log('WebSocket connection opened');
