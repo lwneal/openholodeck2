@@ -64,8 +64,8 @@
             };
 
             pc.oniceconnectionstatechange = () => {
-                if (pc.iceConnectionState === 'disconnected') {
-                    log('ICE connection state is disconnected, closing peer connection');
+                if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                    log('ICE connection state is disconnected or failed, closing peer connection');
                     pc.close();
                     state = 'new';
                     createConnection();
