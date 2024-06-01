@@ -4,7 +4,8 @@ class WebRTCInterface {
         this.localConnection = null;
         this.dataChannel = null;
         this.onMessageCallback = null;
-        this.socket = new WebSocket(`ws://${window.location.host}/ws`);
+        let proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        this.socket = new WebSocket(`${proto}://${window.location.host}/ws`);
         
         this.socket.addEventListener('message', async (event) => {
             const message = JSON.parse(event.data);
