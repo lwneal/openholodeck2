@@ -8,7 +8,151 @@
     <pre id="output"></pre>
 
     <script>
-// TODO: Implement the client-side JavaScript code here.
+        const output = document.getElementById('output');
+
+        let localConnection;
+        let dataChannel;
+        let clientID = null;
+        let clients = {};
+
+        // Create WebSocket connection.
+        let proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const socket = new WebSocket(proto + '://' + window.location.host + '/ws');
+
+        socket.addEventListener('message', function (event) {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'client_id') {
+                clientID = data.id;
+            } else if (data.type === 'clients') {
+                // Update the clients list
+                const newClients = {};
+                data.clients.forEach(client => {
+                    newClients[client.id] = client;
+                });
+                clients = newClients;
+                // Update connections
+                connectToPeers();
+            } else {
+                // Handle WebRTC signaling messages
+                if (data.type === 'offer') {
+                    handleOffer(data);
+                } else if (data.type === 'answer') {
+                    handleAnswer(data);
+                } else if (data.type === 'candidate') {
+                    handleCandidate(data);
+                }
+            }
+        });
+
+        function connectToPeers() {
+            for (const clientId in clients) {
+                if (clientId !== clientID && !clients[clientId].connection) {
+                    createConnection(clientId);
+                }
+            }
+        }
+
+        function createConnection(peerID) {
+            const connection = new RTCPeerConnection();
+
+            connection.ondatachannel = event => {
+                const receiveChannel = event.channel;
+                receiveChannel.onmessage = event => {
+                    const message = JSON.parse(event.data);
+                    output.textContent += `Received message: ${message}\n`;
+                };
+            };
+
+            connection.onicecandidate = event => {
+                if (event.candidate) {
+                    sendMessage({
+                        type: 'candidate',
+                        candidate: event.candidate,
+                        target: peerID
+                    });
+                }
+            };
+
+            dataChannel = connection.createDataChannel('chat');
+            dataChannel.onopen = () => {
+                output.textContent += 'Data channel open\n';
+            };
+            dataChannel.onmessage = event => {
+                const message = JSON.parse(event.data);
+                output.textContent += `Received message: ${message}\n`;
+            };
+
+            connection.createOffer()
+                .then(offer => connection.setLocalDescription(offer))
+                .then(() => {
+                    sendMessage({
+                        type: 'offer',
+                        offer: connection.localDescription,
+                        target: peerID
+                    });
+                });
+
+            clients[peerID].connection = connection;
+        }
+
+        function handleOffer(data) {
+            const connection = new RTCPeerConnection();
+
+            connection.ondatachannel = event => {
+                const receiveChannel = event.channel;
+                receiveChannel.onmessage = event => {
+                    const message = JSON.parse(event.data);
+                    output.textContent += `Received message: ${message}\n`;
+                };
+            };
+
+            connection.onicecandidate = event => {
+                if (event.candidate) {
+                    sendMessage({
+                        type: 'candidate',
+                        candidate: event.candidate,
+                        target: data.id
+                    });
+                }
+            };
+
+            connection.setRemoteDescription(new RTCSessionDescription(data.offer))
+                .then(() => connection.createAnswer())
+                .then(answer => connection.setLocalDescription(answer))
+                .then(() => {
+                    sendMessage({
+                        type: 'answer',
+                        answer: connection.localDescription,
+                        target: data.id
+                    });
+                });
+
+            clients[data.id].connection = connection;
+        }
+
+        function handleAnswer(data) {
+            const connection = clients[data.id].connection;
+            connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+
+        function handleCandidate(data) {
+            const connection = clients[data.id].connection;
+            connection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+
+        function sendMessage(message) {
+            socket.send(JSON.stringify(message));
+        }
+
+        // Send "hello" message every few seconds
+        setInterval(() => {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                const message = JSON.stringify(`Hello from ${clientID} at ${new Date().toISOString()}`);
+                dataChannel.send(message);
+                output.textContent += `Sent message: ${message}\n`;
+            }
+        }, 5000);
     </script>
 </body>
 </html>
