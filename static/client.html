@@ -115,7 +115,10 @@
             dataChannel.onopen = () => {
                 log('Data Channel Opened');
                 setInterval(() => {
-                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    const message = JSON.stringify({ 
+                        'userAgent': navigator.userAgent, 
+                        'timestamp': new Date().toISOString() 
+                    });
                     if (dataChannel.readyState === 'open') {
                         dataChannel.send(message);
                     }
@@ -124,7 +127,7 @@
 
             dataChannel.onmessage = event => {
                 const message = JSON.parse(event.data);
-                log(`Received: ${message.content}`);
+                log(`Received: UserAgent: ${message.userAgent}, Timestamp: ${message.timestamp}`);
             };
 
             dataChannel.onclose = () => {
