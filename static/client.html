@@ -53,6 +53,14 @@
         }
 
         async function handleClientList(clients) {
+            if (!clientId) {
+                const ownClient = clients.find(client => client.ip === ws._socket.remoteAddress);
+                if (ownClient) {
+                    clientId = ownClient.id;
+                    log('Assigned clientId:', clientId);
+                }
+            }
+            
             const currentClientIds = Object.keys(peerConnections);
             for (const client of clients) {
                 const id = client.id;
