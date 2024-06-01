@@ -1,8 +1,8 @@
 class WebRTCInterface {
     constructor() {
         this.peers = {};
-        this.localConnection = null;
-        this.dataChannel = null;
+        this.localConnections = {};
+        this.dataChannels = {};
         this.onMessageCallback = null;
         let proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
         this.socket = new WebSocket(`${proto}://${window.location.host}/ws`);
@@ -36,20 +36,20 @@ class WebRTCInterface {
     }
 
     async createPeerConnection(clientId) {
-        this.localConnection = new RTCPeerConnection({
+        const localConnection = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
             ],
         });
 
-        this.dataChannel = this.localConnection.createDataChannel('chat');
-        this.dataChannel.onmessage = (event) => {
+        const dataChannel = localConnection.createDataChannel('chat');
+        dataChannel.onmessage = (event) => {
             if (this.onMessageCallback) {
                 this.onMessageCallback(JSON.parse(event.data));
             }
         };
 
-        this.localConnection.onicecandidate = (event) => {
+        localConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 this.socket.send(JSON.stringify({
                     type: 'ice-candidate',
@@ -59,7 +59,7 @@ class WebRTCInterface {
             }
         };
 
-        this.localConnection.ondatachannel = (event) => {
+        localConnection.ondatachannel = (event) => {
             event.channel.onmessage = (msgEvent) => {
                 if (this.onMessageCallback) {
                     this.onMessageCallback(JSON.parse(msgEvent.data));
@@ -67,16 +67,19 @@ class WebRTCInterface {
             };
         };
 
-        const offer = await this.localConnection.createOffer();
-        await this.localConnection.setLocalDescription(offer);
+        const offer = await localConnection.createOffer();
+        await localConnection.setLocalDescription(offer);
 
         this.socket.send(JSON.stringify({
             type: 'offer',
             target: clientId,
-            sdp: this.localConnection.localDescription,
+            sdp: localConnection.localDescription,
+            clientId: this.clientId,
         }));
 
-        this.peers[clientId] = this.localConnection;
+        this.localConnections[clientId] = localConnection;
+        this.dataChannels[clientId] = dataChannel;
+        this.peers[clientId] = localConnection;
     }
 
     async handleOffer(message) {
@@ -110,6 +113,7 @@ class WebRTCInterface {
             sdp: remoteConnection.localDescription,
         }));
 
+        this.dataChannels[message.clientId] = remoteConnection.createDataChannel('chat');
         this.peers[message.clientId] = remoteConnection;
     }
 
@@ -128,17 +132,13 @@ class WebRTCInterface {
     }
 
     async connect() {
-        // This function is called to initialize the WebSocket connection and to wait for peer connection initialization.
-        // Additional code to wait until peer connections are established can be added here if necessary.
-        // Currently assuming that `initializePeers` will handle this asynchronously as messages are received.
+        // Assuming that `initializePeers` will handle this asynchronously as messages are received.
     }
 
     broadcast(msg) {
         const messageStr = JSON.stringify(msg);
-        for (let peer of Object.values(this.peers)) {
-            peer.dataChannels.forEach(channel => {
-                channel.send(messageStr);
-            });
+        for (let channel of Object.values(this.dataChannels)) {
+            channel.send(messageStr);
         }
     }
 
