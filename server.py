@@ -2,6 +2,7 @@ from quart import Quart, websocket, send_from_directory
 import asyncio
 from datetime import datetime
 import json
+import uuid
 
 app = Quart(__name__)
 
@@ -17,13 +18,13 @@ async def broadcast(data):
         try:
             await client.send(json.dumps(data))
         except Exception as e:
-            print(f"Error sending to client {clients[client]}: {str(e)}")
+            print(f"Error sending to client {clients[client]['id']}: {str(e)}")
             disconnect_clients.append(client)
     for client in disconnect_clients:
         clients.pop(client, None)
 
 async def broadcast_clients():
-    client_list = [{'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
+    client_list = [{'id': info['id'], 'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
     await broadcast({'type': 'clients', 'clients': client_list})
 
 @app.websocket('/ws')
@@ -33,7 +34,10 @@ async def ws():
     
     ip = websocket.headers.get('X-Real-IP', websocket.remote_addr)
     user_agent = websocket.headers.get('User-Agent')
+    client_id = str(uuid.uuid4())
+    
     connection_info = {
+        'id': client_id,
         'ip': ip,
         'user_agent': user_agent,
         'timestamp': datetime.now().isoformat()
@@ -47,7 +51,7 @@ async def ws():
     try:
         while True:
             message = await websocket.receive()
-            print(f"Received message from client {clients[ws]}: {message}")
+            print(f"Received message from client {clients[ws]['id']}: {message}")
             await broadcast(json.loads(message))
     except asyncio.CancelledError:
         pass

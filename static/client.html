@@ -9,7 +9,7 @@
 
     <script>
         const outputElement = document.getElementById('output');
-        let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {}, sdpQueue = {};
+        let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {}, sdpQueue = {}, clientId;
 
         function log(...args) {
             console.log(...args);
@@ -52,8 +52,8 @@
         async function handleClientList(clients) {
             const currentClientIds = Object.keys(peerConnections);
             for (const client of clients) {
-                const id = client.ip; // Use IP as a unique identifier
-                if (!currentClientIds.includes(id)) {
+                const id = client.id;
+                if (!currentClientIds.includes(id) && id !== clientId) {
                     await createConnection(id);
                 }
             }
