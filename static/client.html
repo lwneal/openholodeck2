@@ -68,6 +68,7 @@
                     log('ICE connection state is disconnected, closing peer connection');
                     pc.close();
                     state = 'new';
+                    createConnection();
                 }
             };
 
@@ -90,6 +91,10 @@
                     await pc.setLocalDescription(answer);
                     state = 'answer-sent';
                     ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                    // Add queued ICE candidates
+                    while (iceCandidates.length) {
+                        await pc.addIceCandidate(new RTCIceCandidate(iceCandidates.shift()));
+                    }
                 } else if (sdp.type === 'answer' && state === 'offer-sent') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     state = 'connected';
@@ -101,7 +106,7 @@
 
         async function handleICECandidate(candidate) {
             try {
-                if (pc.remoteDescription) {
+                if (pc.remoteDescription && pc.remoteDescription.type) {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
                 } else {
                     iceCandidates.push(candidate);
@@ -136,6 +141,8 @@
 
             dataChannel.onerror = error => {
                 log('Data Channel Error: ' + error.message);
+                dataChannel.close();
+                setupWebSocket();
             };
         }
 

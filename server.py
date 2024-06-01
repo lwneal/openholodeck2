@@ -33,10 +33,11 @@ async def ws():
                 if client != ws:
                     await client.send(data)
     except asyncio.CancelledError:
+        pass
+    finally:
         clients.pop(ws, None)
         print("Client disconnected:", connection_info)
         print_current_clients()
-        raise
 
 def print_current_clients():
     print("\nCurrent Clients:")
