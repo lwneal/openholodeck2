@@ -1,7 +1,6 @@
-from quart import Quart, websocket, jsonify, send_from_directory, request
+from quart import Quart, websocket, send_from_directory
 import asyncio
 from datetime import datetime
-import json
 
 app = Quart(__name__)
 

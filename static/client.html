@@ -12,8 +12,8 @@
         let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {};
 
         function log(...args) {
+            console.log(...args);
             outputElement.textContent += args.join(' ') + '\n';
-            console.log(...args); // Also log to console for debugging in browser dev tools
         }
 
         function setupWebSocket() {
@@ -21,7 +21,7 @@
             ws = new WebSocket(proto + '://' + location.host + '/ws');
 
             ws.onopen = () => {
-                log('WebSocket connection opened');
+                log('WebSocket connection opened to signaling server ', ws.url);
             };
 
             ws.onmessage = async event => {
