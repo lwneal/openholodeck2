@@ -6,9 +6,9 @@
     "",
     "No user interaction is required: the client will communicate with the server and then automatically exchange messages with other clients.",
     "",
-    "Each client should automatically send a JSON message that says 'Hello, world' every 5 seconds to all other clients.",
+    "Each client should automatically send a JSON message every few seconds to all other clients.",
     "",
-    "Use 'stun:stun.l.google.com:19302' for ICE, and use server.py to exchange SDP messages between clients.",
+    "The system should work for 3 or more clients, and should be robust to clients joining and leaving the chat.",
     ""
   ],
   "files": [
