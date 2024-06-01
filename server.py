@@ -1,6 +1,7 @@
 from quart import Quart, websocket, send_from_directory
 import asyncio
 from datetime import datetime
+import json
 
 app = Quart(__name__)
 
@@ -14,7 +15,7 @@ async def broadcast(data):
     disconnect_clients = []
     for client in clients:
         try:
-            await client.send(data)
+            await client.send(json.dumps(data))
         except Exception as e:
             print(f"Error sending to client {clients[client]}: {str(e)}")
             disconnect_clients.append(client)
@@ -47,7 +48,7 @@ async def ws():
         while True:
             message = await websocket.receive()
             print(f"Received message from client {clients[ws]}: {message}")
-            await broadcast(message)
+            await broadcast(json.loads(message))
     except asyncio.CancelledError:
         pass
     finally:
