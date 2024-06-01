@@ -23,10 +23,6 @@ async def broadcast(data):
     for client in disconnect_clients:
         clients.pop(client, None)
 
-async def broadcast_clients():
-    client_list = [{'id': info['id'], 'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
-    await broadcast({'type': 'clients', 'clients': client_list})
-
 @app.websocket('/ws')
 async def ws():
     global clients
@@ -47,14 +43,14 @@ async def ws():
     print_current_clients()
 
     await websocket.send(json.dumps({'type': 'client_id', 'id': client_id}))
-    await broadcast_clients()
+    await broadcast({'type': 'clients', 'clients': clients.values()})
 
     try:
         while True:
             message = await websocket.receive()
             data = json.loads(message)
             if data.get('type') == 'request_clients':
-                await websocket.send(json.dumps({'type': 'clients', 'clients': client_list()}))
+                await websocket.send(json.dumps({'type': 'clients', 'clients': clients.values()}))
             else:
                 print(f"Received message from client {clients[ws]['id']}: {message}")
                 await broadcast(data)
@@ -65,9 +61,6 @@ async def ws():
         await broadcast_clients()
         print("Client disconnected:", connection_info)
         print_current_clients()
-
-def client_list():
-    return [{'id': info['id'], 'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
 
 def print_current_clients():
     print("\nCurrent Clients:")
