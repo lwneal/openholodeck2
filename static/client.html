@@ -21,13 +21,15 @@
             ws = new WebSocket(proto + '://' + location.host + '/ws');
 
             ws.onopen = () => {
-                log('WebSocket connection opened to signaling server ', ws.url);
+                log('WebSocket connection opened to signaling server', ws.url);
             };
 
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
                 log('WebSocket message received:', message);
-                if (message.sdp) {
+                if (message.type === 'clients') {
+                    await handleClientList(message.clients);
+                } else if (message.sdp) {
                     await handleSDPMessage(message.id, message.sdp);
                 } else if (message.candidate) {
                     await handleICECandidate(message.id, message.candidate);
@@ -45,6 +47,16 @@
                 log('WebSocket error:', error.message);
                 ws.close();
             };
+        }
+
+        async function handleClientList(clients) {
+            const currentClientIds = Object.keys(peerConnections);
+            for (const client of clients) {
+                const id = client.ip; // Use IP as a unique identifier
+                if (!currentClientIds.includes(id)) {
+                    await createConnection(id);
+                }
+            }
         }
 
         function createPeerConnection(id) {

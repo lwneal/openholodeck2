@@ -21,6 +21,10 @@ async def broadcast(data):
     for client in disconnect_clients:
         clients.pop(client, None)
 
+async def broadcast_clients():
+    client_list = [{'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
+    await broadcast({'type': 'clients', 'clients': client_list})
+
 @app.websocket('/ws')
 async def ws():
     global clients
@@ -37,6 +41,8 @@ async def ws():
     print("Client connected:", connection_info)
     print_current_clients()
 
+    await broadcast_clients()
+
     try:
         while True:
             message = await websocket.receive()
@@ -46,6 +52,7 @@ async def ws():
         pass
     finally:
         clients.pop(ws, None)
+        await broadcast_clients()
         print("Client disconnected:", connection_info)
         print_current_clients()
 
