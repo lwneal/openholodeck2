@@ -27,9 +27,9 @@
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
                 log('WebSocket message received:', message);
-                if (message.id && message.sdp) {
+                if (message.sdp) {
                     await handleSDPMessage(message.id, message.sdp);
-                } else if (message.id && message.candidate) {
+                } else if (message.candidate) {
                     await handleICECandidate(message.id, message.candidate);
                 } else {
                     log('Received unknown message type:', message);
