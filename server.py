@@ -14,7 +14,8 @@ async def index():
 async def ws():
     global clients
     ws = websocket._get_current_object()
-    ip = websocket.remote_addr
+    
+    ip = websocket.headers.get('X-Real-IP', websocket.remote_addr)
     user_agent = websocket.headers.get('User-Agent')
     connection_info = {
         'ip': ip,
