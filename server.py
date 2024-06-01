@@ -1,6 +1,7 @@
 from quart import Quart, websocket, jsonify, send_from_directory
 import asyncio
 from datetime import datetime
+import json
 
 app = Quart(__name__)
 
@@ -9,6 +10,16 @@ clients = {}
 @app.route('/')
 async def index():
     return await send_from_directory('static', 'client.html')
+
+async def broadcast(data):
+    disconnect_clients = []
+    for client in clients:
+        try:
+            await client.send(data)
+        except:
+            disconnect_clients.append(client)
+    for client in disconnect_clients:
+        clients.pop(client, None)
 
 @app.websocket('/ws')
 async def ws():
@@ -27,11 +38,8 @@ async def ws():
     print_current_clients()
 
     try:
-        while True:
-            data = await websocket.receive()
-            for client in clients:
-                if client != ws:
-                    await client.send(data)
+        async for message in websocket:
+            await broadcast(message)
     except asyncio.CancelledError:
         pass
     finally:

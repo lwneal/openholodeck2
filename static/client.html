@@ -9,28 +9,26 @@
 
     <script>
         const outputElement = document.getElementById('output');
-        let ws, pc, dataChannel, iceCandidates = [], state = 'new';
+        let ws, peerConnections = {}, dataChannels = {}, iceCandidates = {};
 
         function log(...args) {
             outputElement.textContent += args.join(' ') + '\n';
         }
 
         function setupWebSocket() {
-            let proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
             ws = new WebSocket(proto + '://' + location.host + '/ws');
-            
+
             ws.onopen = () => {
                 log('WebSocket connection opened');
-                createConnection();
             };
 
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
-
-                if (message.sdp) {
-                    await handleSDPMessage(message.sdp);
-                } else if (message.candidate) {
-                    await handleICECandidate(message.candidate);
+                if (message.id && message.sdp) {
+                    await handleSDPMessage(message.id, message.sdp);
+                } else if (message.id && message.candidate) {
+                    await handleICECandidate(message.id, message.candidate);
                 } else {
                     log('Received unknown message type:', message);
                 }
@@ -47,78 +45,91 @@
             };
         }
 
-        async function createConnection() {
-            pc = new RTCPeerConnection({
+        function createPeerConnection(id) {
+            const pc = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
 
             pc.onicecandidate = event => {
                 if (event.candidate) {
-                    ws.send(JSON.stringify({ 'candidate': event.candidate }));
+                    ws.send(JSON.stringify({ id: id, 'candidate': event.candidate }));
                 }
             };
 
             pc.ondatachannel = event => {
-                dataChannel = event.channel;
-                setupDataChannel();
+                dataChannels[id] = event.channel;
+                setupDataChannel(id);
             };
 
             pc.oniceconnectionstatechange = () => {
                 if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                    log('ICE connection state is disconnected or failed, closing peer connection');
+                    log('ICE connection state is disconnected or failed for ' + id + ', closing peer connection');
                     pc.close();
-                    state = 'new';
-                    createConnection();
+                    delete peerConnections[id];
+                    delete dataChannels[id];
                 }
             };
 
-            if (state === 'new') {
-                dataChannel = pc.createDataChannel('chat');
-                setupDataChannel();
+            return pc;
+        }
+
+        async function createConnection(id) {
+            const pc = createPeerConnection(id);
+            peerConnections[id] = pc;
+
+            if (!dataChannels[id]) {
+                dataChannels[id] = pc.createDataChannel('chat');
+                setupDataChannel(id);
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                state = 'offer-sent';
-                ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
             }
         }
 
-        async function handleSDPMessage(sdp) {
+        async function handleSDPMessage(id, sdp) {
             try {
-                if (sdp.type === 'offer' && (state === 'new' || state === 'offer-sent')) {
-                    await createConnection();
+                if (!peerConnections[id]) {
+                    await createConnection(id);
+                }
+                const pc = peerConnections[id];
+                if (sdp.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    state = 'answer-sent';
-                    ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                    ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+
                     // Add queued ICE candidates
-                    while (iceCandidates.length) {
-                        await pc.addIceCandidate(new RTCIceCandidate(iceCandidates.shift()));
+                    while (iceCandidates[id] && iceCandidates[id].length) {
+                        await pc.addIceCandidate(new RTCIceCandidate(iceCandidates[id].shift()));
                     }
-                } else if (sdp.type === 'answer' && state === 'offer-sent') {
+                } else if (sdp.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-                    state = 'connected';
                 }
             } catch (e) {
                 log('Error handling SDP message:', e);
             }
         }
 
-        async function handleICECandidate(candidate) {
+        async function handleICECandidate(id, candidate) {
             try {
-                if (pc.remoteDescription && pc.remoteDescription.type) {
+                const pc = peerConnections[id];
+                if (pc && pc.remoteDescription && pc.remoteDescription.type) {
                     await pc.addIceCandidate(new RTCIceCandidate(candidate));
                 } else {
-                    iceCandidates.push(candidate);
+                    if (!iceCandidates[id]) {
+                        iceCandidates[id] = [];
+                    }
+                    iceCandidates[id].push(candidate);
                 }
             } catch (e) {
                 log('Error adding received ICE candidate:', e);
             }
         }
 
-        function setupDataChannel() {
+        function setupDataChannel(id) {
+            const dataChannel = dataChannels[id];
             dataChannel.onopen = () => {
-                log('Data Channel Opened');
+                log('Data Channel Opened with ' + id);
                 setInterval(() => {
                     const message = JSON.stringify({ 
                         'userAgent': navigator.userAgent, 
@@ -132,15 +143,15 @@
 
             dataChannel.onmessage = event => {
                 const message = JSON.parse(event.data);
-                log(`Received: UserAgent: ${message.userAgent}, Timestamp: ${message.timestamp}`);
+                log(`Received from ${id}: UserAgent: ${message.userAgent}, Timestamp: ${message.timestamp}`);
             };
 
             dataChannel.onclose = () => {
-                log('Data Channel Closed');
+                log('Data Channel Closed with ' + id);
             };
 
             dataChannel.onerror = error => {
-                log('Data Channel Error: ' + error.message);
+                log('Data Channel Error with ' + id + ': ' + error.message);
                 dataChannel.close();
                 setupWebSocket();
             };
