@@ -26,9 +26,6 @@
 
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
-                if (message.id === clientId) {
-                    return;
-                }
                 log('WebSocket message received:', message);
                 if (message.type === 'clients') {
                     await handleClientList(message.clients);
@@ -121,6 +118,10 @@
         }
 
         async function handleSDPMessage(id, sdp) {
+            if (id === clientId) {
+                log('Ignoring SDP message from self');
+                return;
+            }
             try {
                 log('Handling SDP message for', id, sdp);
                 if (!peerConnections[id]) {
@@ -161,6 +162,10 @@
         }
 
         async function handleICECandidate(id, candidate) {
+            if (id === clientId) {
+                log('Ignoring ICE candidate from self');
+                return;
+            }
             try {
                 log('Handling ICE candidate for', id, candidate);
                 const pc = peerConnections[id];
