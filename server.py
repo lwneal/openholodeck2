@@ -46,15 +46,17 @@ async def ws():
     print("Client connected:", connection_info)
     print_current_clients()
 
-    # Wait 2 seconds before sending the client list to the new client
-    await asyncio.sleep(2)
     await broadcast_clients()
 
     try:
         while True:
             message = await websocket.receive()
-            print(f"Received message from client {clients[ws]['id']}: {message}")
-            await broadcast(json.loads(message))
+            data = json.loads(message)
+            if data.get('type') == 'request_clients':
+                await websocket.send(json.dumps({'type': 'clients', 'clients': client_list()}))
+            else:
+                print(f"Received message from client {clients[ws]['id']}: {message}")
+                await broadcast(data)
     except asyncio.CancelledError:
         pass
     finally:
@@ -62,6 +64,9 @@ async def ws():
         await broadcast_clients()
         print("Client disconnected:", connection_info)
         print_current_clients()
+
+def client_list():
+    return [{'id': info['id'], 'ip': info['ip'], 'user_agent': info['user_agent'], 'timestamp': info['timestamp']} for info in clients.values()]
 
 def print_current_clients():
     print("\nCurrent Clients:")

@@ -22,6 +22,9 @@
 
             ws.onopen = () => {
                 log('WebSocket connection opened to signaling server', ws.url);
+                setInterval(() => {
+                    ws.send(JSON.stringify({ type: 'request_clients' }));
+                }, 10000);
             };
 
             ws.onmessage = async event => {
