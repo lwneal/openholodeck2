@@ -46,6 +46,8 @@ async def ws():
     print("Client connected:", connection_info)
     print_current_clients()
 
+    # Wait 2 seconds before sending the client list to the new client
+    await asyncio.sleep(2)
     await broadcast_clients()
 
     try:
