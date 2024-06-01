@@ -13,7 +13,8 @@
   ],
   "files": [
     "./server.py",
-    "static/client.html"
+    "static/client.html",
+    "static/rtc.js"
   ],
   "conclusion_text": [
     "",
