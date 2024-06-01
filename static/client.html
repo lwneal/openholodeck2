@@ -7,5 +7,35 @@
     <h1>Robust WebRTC Data Channel</h1>
     <pre id="output"></pre>
     <script src="rtc.js"></script>
+    <script>
+        const outputElement = document.getElementById('output');
+        
+        function log(message) {
+            outputElement.textContent += `${message}\n`;
+        }
+
+        const rtc = new WebRTCInterface();
+
+        rtc.setOnMessageCallback((msg) => {
+            log(`Received message: ${JSON.stringify(msg)}`);
+        });
+
+        async function start() {
+            await rtc.connect();
+
+            if (rtc.connected()) {
+                log('Successfully connected to all peers');
+                setInterval(() => {
+                    const message = { type: 'broadcast', content: 'Hello, peers!', timestamp: new Date() };
+                    rtc.broadcast(message);
+                    log(`Broadcasting message: ${JSON.stringify(message)}`);
+                }, 5000);
+            } else {
+                log('Failed to connect to peers');
+            }
+        }
+
+        start();
+    </script>
 </body>
 </html>
