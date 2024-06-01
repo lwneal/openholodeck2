@@ -103,7 +103,9 @@ def extract_code_blocks(content):
 
 def write_code_blocks(code_blocks):
     for filename, code in code_blocks:
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         with open(filename, 'w') as file:
             file.write(code)
     

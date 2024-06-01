@@ -8,7 +8,74 @@
     <pre id="output"></pre>
 
     <script>
-// TODO
+        const outputElement = document.getElementById('output');
+        const ws = new WebSocket('ws://' + location.host + '/ws');
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        
+        let dataChannel;
+
+        pc.onicecandidate = event => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({ 'candidate': event.candidate }));
+            }
+        };
+
+        pc.ondatachannel = event => {
+            const channel = event.channel;
+            channel.onmessage = (evt) => {
+                const message = JSON.parse(evt.data);
+                outputElement.textContent += `Received: ${message.content}\n`;
+            };
+        };
+
+        ws.onmessage = async event => {
+            const message = JSON.parse(event.data);
+
+            if (message.sdp) {
+                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                if (message.sdp.type === 'offer') {
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                }
+            } else if (message.candidate) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                } catch (e) {
+                    console.error('Error adding received ice candidate', e);
+                }
+            }
+        };
+
+        async function createConnection() {
+            dataChannel = pc.createDataChannel('chat');
+            dataChannel.onopen = () => {
+                outputElement.textContent += 'Data Channel Opened\n';
+                setInterval(() => {
+                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    if (dataChannel.readyState === 'open') {
+                        dataChannel.send(message);
+                    }
+                }, 5000);
+            };
+
+            dataChannel.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                outputElement.textContent += `Received: ${message.content}\n`;
+            };
+
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+            } catch (e) {
+                console.error('Failed to create offer:', e);
+            }
+        }
+
+        createConnection();
     </script>
 </body>
 </html>
