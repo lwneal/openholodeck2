@@ -28,14 +28,8 @@
                 const message = JSON.parse(event.data);
 
                 if (message.sdp) {
-                    log('Received websocket SDP message')
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (message.sdp.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        log('Sending websocket SDP offer response:', answer);
-                        ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
-                    }
+                    log('Received websocket SDP message');
+                    await handleSDPMessage(message.sdp);
                 } else if (message.candidate) {
                     log('Received websocket ICE candidate message');
                     try {
@@ -82,9 +76,30 @@
 
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
+                log('Sending SDP offer:', offer);
                 ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
             } catch (e) {
                 console.error('Failed to create offer:', e);
+            }
+        }
+
+        async function handleSDPMessage(sdp) {
+            if (sdp.type === 'offer') {
+                if (pc.signalingState !== 'stable') {
+                    // Create a new RTCPeerConnection
+                    createConnection();
+                }
+                await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                log('Sending SDP answer:', answer);
+                ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+            } else if (sdp.type === 'answer') {
+                if (pc.signalingState === 'have-local-offer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                } else {
+                    log('Unexpected signaling state:', pc.signalingState);
+                }
             }
         }
 
