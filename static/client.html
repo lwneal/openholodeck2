@@ -37,8 +37,8 @@
             };
 
             ws.onclose = () => {
-                log('WebSocket connection closed, retrying in 5 seconds...');
-                setTimeout(setupWebSocket, 5000);
+                log('WebSocket connection closed, retrying in 3 seconds...');
+                setTimeout(setupWebSocket, 3000);
             };
 
             ws.onerror = error => {
