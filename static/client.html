@@ -23,10 +23,20 @@
         };
 
         pc.ondatachannel = event => {
-            const channel = event.channel;
-            channel.onmessage = (evt) => {
+            dataChannel = event.channel;
+            dataChannel.onmessage = (evt) => {
                 const message = JSON.parse(evt.data);
                 outputElement.textContent += `Received: ${message.content}\n`;
+            };
+
+            dataChannel.onopen = () => {
+                outputElement.textContent += 'Data Channel Opened\n';
+                setInterval(() => {
+                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    if (dataChannel.readyState === 'open') {
+                        dataChannel.send(message);
+                    }
+                }, 5000);
             };
         };
 
