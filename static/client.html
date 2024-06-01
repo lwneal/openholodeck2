@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Robust WebRTC</title>
+    <title>Robust WebRTC Data Channel</title>
 </head>
 <body>
     <h1>Robust WebRTC Data Channel</h1>
@@ -59,6 +59,21 @@
             }
         }
 
+        async function createConnection(id) {
+            const pc = createPeerConnection(id);
+            peerConnections[id] = pc;
+
+            if (!dataChannels[id]) {
+                log('Creating Data Channel for', id);
+                dataChannels[id] = pc.createDataChannel('chat');
+                setupDataChannel(id);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
+                log('Sent SDP offer to WebSocket for', id);
+            }
+        }
+
         function createPeerConnection(id) {
             const pc = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -90,21 +105,6 @@
             return pc;
         }
 
-        async function createConnection(id) {
-            const pc = createPeerConnection(id);
-            peerConnections[id] = pc;
-
-            if (!dataChannels[id]) {
-                log('Creating Data Channel for', id);
-                dataChannels[id] = pc.createDataChannel('chat');
-                setupDataChannel(id);
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                ws.send(JSON.stringify({ id: id, 'sdp': pc.localDescription }));
-                log('Sent SDP offer to WebSocket for', id);
-            }
-        }
-
         async function handleSDPMessage(id, sdp) {
             try {
                 log('Handling SDP message for', id, sdp);
@@ -113,6 +113,10 @@
                 }
                 const pc = peerConnections[id];
                 if (sdp.type === 'offer') {
+                    if (pc.signalingState !== 'stable') {
+                        log('Peer connection is not stable, cannot handle offer');
+                        return;
+                    }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
@@ -125,6 +129,10 @@
                         log('Added queued ICE candidate for', id);
                     }
                 } else if (sdp.type === 'answer') {
+                    if (pc.signalingState !== 'have-local-offer') {
+                        log('Peer connection does not have local offer, cannot handle answer');
+                        return;
+                    }
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
                     log('Set remote SDP answer for', id);
                 }
