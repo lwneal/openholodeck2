@@ -13,7 +13,8 @@ async def index():
 async def ws():
     global clients
     clients.add(websocket._get_current_object())
-    print("Client connected")
+    ip = websocket._get_current_object().remote_addr
+    print("Client connected from IP: ", ip)
     try:
         while True:
             data = await websocket.receive()
@@ -22,7 +23,7 @@ async def ws():
                     await client.send(data)
     except asyncio.CancelledError:
         clients.remove(websocket._get_current_object())
-        print("Client disconnected")
+        print("Client disconnected from IP: ", ip)
         raise
 
 if __name__ == '__main__':
