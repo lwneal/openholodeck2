@@ -17,7 +17,11 @@
         const rtc = new WebRTCInterface();
 
         rtc.setOnMessageCallback((msg) => {
-            log(`Received message: ${JSON.stringify(msg)}`);
+            if (msg.type === 'ping') {
+                log(`Received server ping at ${msg.timestamp}`);
+            } else {
+                log(`Received message: ${JSON.stringify(msg)}`);
+            }
         });
 
         async function start() {

@@ -23,6 +23,9 @@ async def ws():
     await websocket.send(json.dumps({'type': 'client_id', 'id': client_id}))
     await notify_clients()
 
+    # Start a background task to send periodic pings
+    asyncio.create_task(periodic_ping(client_id))
+
     try:
         while True:
             message = await websocket.receive()
@@ -39,6 +42,16 @@ async def notify_clients():
     client_list = [{'id': client_id} for client_id in clients]
     message = json.dumps({'type': 'clients', 'clients': client_list})
     await asyncio.gather(*(client.send(message) for client in clients.values()))
+
+async def periodic_ping(client_id):
+    while client_id in clients:
+        try:
+            await clients[client_id].send(json.dumps({'type': 'ping', 'timestamp': str(uuid.uuid1())}))
+        except:
+            del clients[client_id]
+            await notify_clients()
+            break
+        await asyncio.sleep(2)
 
 if __name__ == '__main__':
     app.run(port=8000)
