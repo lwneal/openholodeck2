@@ -1,0 +1,29 @@
+{
+  "intro_text": [
+    "We're building a simple WebRTC chat app.",
+    "",
+    "The app is a demonstration of the Data Channel API.",
+    "",
+    "No user interaction is required: the client will communicate with the server and then automatically exchange messages with other clients.",
+    "",
+    "Each client should automatically send a JSON message that says 'Hello, world' every 5 seconds to all other clients.",
+    "",
+    "Use 'stun:stun.l.google.com:19302' for ICE, and use server.py to exchange SDP messages between clients."
+  ],
+  "files": [
+    "./server.py",
+    "static/client.html"
+  ],
+  "conclusion_text": [
+    "",
+    "First, let's think through the changes that need to be made. Then let's write out the full and complete source code of each file that needs to be changed.",
+    "Output a filename followed by a code block, like this:",
+    "# src/example.py",
+    "```python",
+    "import foobar",
+    "# ...",
+    "```",
+    "",
+    "Be sure to write out full and complete source code files. Good luck!"
+  ]
+}
