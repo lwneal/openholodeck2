@@ -118,6 +118,7 @@ def main():
 
     # Add intro text
     prompt.extend(config["intro_text"])
+    prompt.extend(["\n", "\nCurrent:"])
 
     # Add file contents
     for file_path in config["files"]:
@@ -146,7 +147,7 @@ def main():
     subprocess.run([editor, 'gpt-task.txt'])
     
     # Add task.txt
-    prompt.append(read_file_content('./task.txt', "### "))
+    prompt.append(read_file_content('gpt-task.txt', "### "))
 
     # Add conclusion text
     prompt.extend(config["conclusion_text"])

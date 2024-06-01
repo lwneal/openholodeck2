@@ -8,7 +8,8 @@
     "",
     "Each client should automatically send a JSON message that says 'Hello, world' every 5 seconds to all other clients.",
     "",
-    "Use 'stun:stun.l.google.com:19302' for ICE, and use server.py to exchange SDP messages between clients."
+    "Use 'stun:stun.l.google.com:19302' for ICE, and use server.py to exchange SDP messages between clients.",
+    ""
   ],
   "files": [
     "./server.py",
