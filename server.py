@@ -58,7 +58,7 @@ async def ws():
         pass
     finally:
         clients.pop(ws, None)
-        await broadcast_clients()
+        await broadcast({'type': 'clients', 'clients': clients.values()})
         print("Client disconnected:", connection_info)
         print_current_clients()
 
