@@ -126,17 +126,24 @@
                     });
                 });
 
+            if (!clients[data.id]) {
+                clients[data.id] = {};
+            }
             clients[data.id].connection = connection;
         }
 
         function handleAnswer(data) {
-            const connection = clients[data.id].connection;
-            connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            const connection = clients[data.id]?.connection;
+            if (connection) {
+                connection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            }
         }
 
         function handleCandidate(data) {
-            const connection = clients[data.id].connection;
-            connection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            const connection = clients[data.id]?.connection;
+            if (connection) {
+                connection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
         }
 
         function sendMessage(message) {
