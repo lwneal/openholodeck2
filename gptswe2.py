@@ -134,6 +134,7 @@ def main():
         task_file.write("### Context:")
         tokens_total = 0
         for file_path in config["files"]:
+            print("Tokenizing file: {} ...".format(file_path))
             tokens = token_count(read_file_content(file_path))
             task_file.write("### {} ({} tokens)\n".format(file_path, tokens))
             tokens_total += tokens
