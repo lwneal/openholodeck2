@@ -43,14 +43,14 @@ async def ws():
     print_current_clients()
 
     await websocket.send(json.dumps({'type': 'client_id', 'id': client_id}))
-    await broadcast({'type': 'clients', 'clients': clients.values()})
+    await broadcast({'type': 'clients', 'clients': list(clients.values())})
 
     try:
         while True:
             message = await websocket.receive()
             data = json.loads(message)
             if data.get('type') == 'request_clients':
-                await websocket.send(json.dumps({'type': 'clients', 'clients': clients.values()}))
+                await websocket.send(json.dumps({'type': 'clients', 'clients': list(clients.values())}))
             else:
                 print(f"Received message from client {clients[ws]['id']}: {message}")
                 await broadcast(data)
@@ -58,7 +58,7 @@ async def ws():
         pass
     finally:
         clients.pop(ws, None)
-        await broadcast({'type': 'clients', 'clients': clients.values()})
+        await broadcast({'type': 'clients', 'clients': list(clients.values())})
         print("Client disconnected:", connection_info)
         print_current_clients()
 
