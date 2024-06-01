@@ -26,6 +26,9 @@
 
             ws.onmessage = async event => {
                 const message = JSON.parse(event.data);
+                if (message.id === clientId) {
+                    return;
+                }
                 log('WebSocket message received:', message);
                 if (message.type === 'clients') {
                     await handleClientList(message.clients);
