@@ -11,6 +11,10 @@ clients = {}
 async def index():
     return await send_from_directory('static', 'client.html')
 
+@app.route('/rtc.js')
+async def rtc():
+    return await send_from_directory('static', 'rtc.js')
+
 @app.websocket('/ws')
 async def ws():
     client_id = str(uuid.uuid4())
