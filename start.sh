@@ -1,4 +1,7 @@
 #!/bin/bash
+# Kill any current server
+pkill -f server.py
+
 # If venv does not exist, create it
 if [ ! -d "venv" ]; then
     python3 -m venv venv
