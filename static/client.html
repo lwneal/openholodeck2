@@ -9,7 +9,7 @@
 
     <script>
         const outputElement = document.getElementById('output');
-        let ws, pc, dataChannel;
+        let ws, pc, dataChannel, iceCandidates = [], state = 'new';
 
         function log(...args) {
             outputElement.textContent += args.join(' ') + '\n';
@@ -28,15 +28,9 @@
                 const message = JSON.parse(event.data);
 
                 if (message.sdp) {
-                    log('Received websocket SDP message');
                     await handleSDPMessage(message.sdp);
                 } else if (message.candidate) {
-                    log('Received websocket ICE candidate message');
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {
-                        console.error('Error adding received ice candidate', e);
-                    }
+                    await handleICECandidate(message.candidate);
                 } else {
                     log('Received unknown message type:', message);
                 }
@@ -60,7 +54,6 @@
 
             pc.onicecandidate = event => {
                 if (event.candidate) {
-                    log('Sending ICE candidate ', JSON.stringify(event.candidate));
                     ws.send(JSON.stringify({ 'candidate': event.candidate }));
                 }
             };
@@ -70,36 +63,51 @@
                 setupDataChannel();
             };
 
-            try {
+            pc.oniceconnectionstatechange = () => {
+                if (pc.iceConnectionState === 'disconnected') {
+                    log('ICE connection state is disconnected, closing peer connection');
+                    pc.close();
+                    state = 'new';
+                }
+            };
+
+            if (state === 'new') {
                 dataChannel = pc.createDataChannel('chat');
                 setupDataChannel();
-
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                log('Sending SDP offer:', offer);
+                state = 'offer-sent';
                 ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
-            } catch (e) {
-                console.error('Failed to create offer:', e);
             }
         }
 
         async function handleSDPMessage(sdp) {
-            if (sdp.type === 'offer') {
-                if (pc.signalingState !== 'stable') {
-                    // Create a new RTCPeerConnection
-                    createConnection();
-                }
-                await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                log('Sending SDP answer:', answer);
-                ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
-            } else if (sdp.type === 'answer') {
-                if (pc.signalingState === 'have-local-offer') {
+            try {
+                if (sdp.type === 'offer' && (state === 'new' || state === 'offer-sent')) {
+                    await createConnection();
                     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-                } else {
-                    log('Unexpected signaling state:', pc.signalingState);
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    state = 'answer-sent';
+                    ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                } else if (sdp.type === 'answer' && state === 'offer-sent') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+                    state = 'connected';
                 }
+            } catch (e) {
+                log('Error handling SDP message:', e);
+            }
+        }
+
+        async function handleICECandidate(candidate) {
+            try {
+                if (pc.remoteDescription) {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } else {
+                    iceCandidates.push(candidate);
+                }
+            } catch (e) {
+                log('Error adding received ICE candidate:', e);
             }
         }
 
@@ -107,15 +115,14 @@
             dataChannel.onopen = () => {
                 log('Data Channel Opened');
                 setInterval(() => {
-                    let hello = `Hello, my user agent is ${navigator.userAgent} and the current time is ${new Date().toLocaleTimeString()}`;
-                    const message = JSON.stringify({ 'content': hello });
+                    const message = JSON.stringify({ 'content': 'Hello, world' });
                     if (dataChannel.readyState === 'open') {
                         dataChannel.send(message);
                     }
                 }, 5000);
             };
 
-            dataChannel.onmessage = (event) => {
+            dataChannel.onmessage = event => {
                 const message = JSON.parse(event.data);
                 log(`Received: ${message.content}`);
             };
@@ -124,7 +131,7 @@
                 log('Data Channel Closed');
             };
 
-            dataChannel.onerror = (error) => {
+            dataChannel.onerror = error => {
                 log('Data Channel Error: ' + error.message);
             };
         }
