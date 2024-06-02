@@ -5,11 +5,12 @@
 </head>
 <body>
     <h1>WebRTC Data Channel Example</h1>
-    <div id="console" style="color: white; background-color: black; width: 100%; overflow-y: scroll;"></div>
+    <div id="console" style="color: white; background-color: black; width: 100%; height: 50%; overflow-y: scroll;"></div>
 
     <script>
 let ws, pc, dataChannel;
 
+let maxLines = 60;
 function log(...args) {
     let message = args.join(' ');
     console.log(message);
@@ -18,10 +19,10 @@ function log(...args) {
     let line = document.createElement('pre');
     line.innerText = `[${timestamp}] ${message}`;
     consoleEl.appendChild(line);
-    let maxLines = 30;
     while (consoleEl.childNodes.length > maxLines) {
         consoleEl.removeChild(consoleEl.firstChild);
     }
+    consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 function setupWebSocket() {
