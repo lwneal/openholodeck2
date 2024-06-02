@@ -1,45 +1,112 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Robust WebRTC Data Channel</title>
+    <title>WebRTC Data Channel Example</title>
 </head>
 <body>
-    <h1>Robust WebRTC Data Channel</h1>
+    <h1>WebRTC Data Channel Example</h1>
     <pre id="output"></pre>
-    <script src="rtc.js"></script>
+
     <script>
         const outputElement = document.getElementById('output');
-        
+        let ws, pc, dataChannel;
+
         function log(message) {
-            outputElement.textContent += `${message}\n`;
+            outputElement.textContent += message + '\n';
         }
 
-        const rtc = new WebRTCInterface();
+        function setupWebSocket() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+            
+            ws.onopen = () => {
+                log('WebSocket connection opened');
+                createConnection();
+            };
 
-        rtc.setOnMessageCallback((msg) => {
-            if (msg.type === 'ping') {
-                log(`Received server ping at ${msg.timestamp}`);
-            } else {
-                log(`Received message: ${JSON.stringify(msg)}`);
+            ws.onmessage = async event => {
+                const message = JSON.parse(event.data);
+
+                if (message.sdp) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                    if (message.sdp.type === 'offer') {
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+                    }
+                } else if (message.candidate) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                    } catch (e) {
+                        console.error('Error adding received ice candidate', e);
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                log('WebSocket connection closed, retrying in 5 seconds...');
+                setTimeout(setupWebSocket, 5000);
+            };
+
+            ws.onerror = error => {
+                log('WebSocket error: ' + error.message);
+                ws.close();
+            };
+        }
+
+        async function createConnection() {
+            pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({ 'candidate': event.candidate }));
+                }
+            };
+
+            pc.ondatachannel = event => {
+                dataChannel = event.channel;
+                setupDataChannel();
+            };
+
+            try {
+                dataChannel = pc.createDataChannel('chat');
+                setupDataChannel();
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+            } catch (e) {
+                console.error('Failed to create offer:', e);
             }
-        });
+        }
 
-        async function start() {
-            await rtc.connect();
-
-            if (rtc.connected()) {
-                log('Successfully connected to all peers');
+        function setupDataChannel() {
+            dataChannel.onopen = () => {
+                log('Data Channel Opened');
                 setInterval(() => {
-                    const message = { type: 'broadcast', content: 'Hello, peers!', timestamp: new Date() };
-                    rtc.broadcast(message);
-                    log(`Broadcasting message: ${JSON.stringify(message)}`);
+                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    if (dataChannel.readyState === 'open') {
+                        dataChannel.send(message);
+                    }
                 }, 5000);
-            } else {
-                log('Failed to connect to peers');
-            }
+            };
+
+            dataChannel.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                log(`Received: ${message.content}`);
+            };
+
+            dataChannel.onclose = () => {
+                log('Data Channel Closed');
+            };
+
+            dataChannel.onerror = (error) => {
+                log('Data Channel Error: ' + error.message);
+            };
         }
 
-        start();
+        setupWebSocket();
     </script>
 </body>
 </html>
