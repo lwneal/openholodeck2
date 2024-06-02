@@ -5,122 +5,122 @@
 </head>
 <body>
     <h1>WebRTC Data Channel Example</h1>
-    <div id="console"></div>
+    <div id="console" style="color: white; background-color: black; width: 100%; overflow-y: scroll;"></div>
 
     <script>
-        let ws, pc, dataChannel;
+let ws, pc, dataChannel;
 
-        function log(...args) {
-            let message = args.join(' ');
-            console.log(message);
-            let timestamp = new Date().toISOString().substr(11, 8);
-            let consoleEl = document.getElementById('console');
-            let line = document.createElement('pre');
-            line.innerText = `[${timestamp}] ${message}`;
-            consoleEl.appendChild(line);
-            let maxLines = 30;
-            while (consoleEl.childNodes.length > maxLines) {
-                consoleEl.removeChild(consoleEl.firstChild);
-            }
-        }
+function log(...args) {
+    let message = args.join(' ');
+    console.log(message);
+    let timestamp = new Date().toISOString().substr(11, 8);
+    let consoleEl = document.getElementById('console');
+    let line = document.createElement('pre');
+    line.innerText = `[${timestamp}] ${message}`;
+    consoleEl.appendChild(line);
+    let maxLines = 30;
+    while (consoleEl.childNodes.length > maxLines) {
+        consoleEl.removeChild(consoleEl.firstChild);
+    }
+}
 
-        function setupWebSocket() {
-            log('setupWebSocket()');
-            let proto = location.protocol === 'https:' ? 'wss' : 'ws';
-            ws = new WebSocket(proto + '://' + location.host + '/ws');
-            
-            ws.onopen = () => {
-                log('WebSocket connection opened');
-                createConnection();
-            };
+function setupWebSocket() {
+    log('setupWebSocket()');
+    let proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws');
+    
+    ws.onopen = () => {
+        log('WebSocket connection opened');
+        createConnection();
+    };
 
-            ws.onmessage = async event => {
-                const message = JSON.parse(event.data);
+    ws.onmessage = async event => {
+        const message = JSON.parse(event.data);
 
-                if (message.sdp) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                    if (message.sdp.type === 'offer') {
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
-                    }
-                } else if (message.candidate) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                    } catch (e) {
-                        log('Error adding received ice candidate', e);
-                    }
-                }
-            };
-
-            ws.onclose = () => {
-                log('WebSocket connection closed, retrying...');
-                setTimeout(setupWebSocket, 1000);
-            };
-
-            ws.onerror = error => {
-                log('WebSocket error: ' + error.message);
-                ws.close();
-            };
-        }
-
-        async function createConnection() {
-            log('createConnection()');
-            pc = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-            });
-
-            pc.onicecandidate = event => {
-                if (event.candidate) {
-                    ws.send(JSON.stringify({ 'candidate': event.candidate }));
-                }
-            };
-
-            pc.ondatachannel = event => {
-                dataChannel = event.channel;
-                setupDataChannel();
-            };
-
-            try {
-                dataChannel = pc.createDataChannel('chat');
-                setupDataChannel();
-
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
+        if (message.sdp) {
+            await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+            if (message.sdp.type === 'offer') {
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
                 ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+            }
+        } else if (message.candidate) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
             } catch (e) {
-                log('Failed to create offer:', e);
+                log('Error adding received ice candidate', e);
             }
         }
+    };
 
-        function setupDataChannel() {
-            log('setupDataChannel()');
-            dataChannel.onopen = () => {
-                log('Data Channel Opened');
-                setInterval(() => {
-                    let msg = `Time: ${new Date().toLocaleTimeString()} User Agent: ${navigator.userAgent}`;
-                    const message = JSON.stringify({ 'content': msg });
-                    if (dataChannel.readyState === 'open') {
-                        dataChannel.send(message);
-                    }
-                }, 3000);
-            };
+    ws.onclose = () => {
+        log('WebSocket connection closed, retrying...');
+        setTimeout(setupWebSocket, 1000);
+    };
 
-            dataChannel.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                log(`Received: ${message.content}`);
-            };
+    ws.onerror = error => {
+        log('WebSocket error: ' + error.message);
+        ws.close();
+    };
+}
 
-            dataChannel.onclose = () => {
-                log('Data Channel Closed');
-            };
+async function createConnection() {
+    log('createConnection()');
+    pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
 
-            dataChannel.onerror = (error) => {
-                log('Data Channel Error: ' + error.message);
-            };
+    pc.onicecandidate = event => {
+        if (event.candidate) {
+            ws.send(JSON.stringify({ 'candidate': event.candidate }));
         }
+    };
 
-        setupWebSocket();
+    pc.ondatachannel = event => {
+        dataChannel = event.channel;
+        setupDataChannel();
+    };
+
+    try {
+        dataChannel = pc.createDataChannel('chat');
+        setupDataChannel();
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
+    } catch (e) {
+        log('Failed to create offer:', e);
+    }
+}
+
+function setupDataChannel() {
+    log('setupDataChannel()');
+    dataChannel.onopen = () => {
+        log('Data Channel Opened');
+        setInterval(() => {
+            let msg = `Time: ${new Date().toLocaleTimeString()} User Agent: ${navigator.userAgent}`;
+            const message = JSON.stringify({ 'content': msg });
+            if (dataChannel.readyState === 'open') {
+                dataChannel.send(message);
+            }
+        }, 3000);
+    };
+
+    dataChannel.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        log(`Received: ${message.content}`);
+    };
+
+    dataChannel.onclose = () => {
+        log('Data Channel Closed');
+    };
+
+    dataChannel.onerror = (error) => {
+        log('Data Channel Error: ' + error.message);
+    };
+}
+
+setupWebSocket();
     </script>
 </body>
 </html>
