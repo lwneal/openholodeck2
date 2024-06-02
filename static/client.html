@@ -86,11 +86,12 @@
             dataChannel.onopen = () => {
                 log('Data Channel Opened');
                 setInterval(() => {
-                    const message = JSON.stringify({ 'content': 'Hello, world' });
+                    let msg = `Time: ${new Date().toLocaleTimeString()} User Agent: ${navigator.userAgent}`;
+                    const message = JSON.stringify({ 'content': msg });
                     if (dataChannel.readyState === 'open') {
                         dataChannel.send(message);
                     }
-                }, 5000);
+                }, 3000);
             };
 
             dataChannel.onmessage = (event) => {
