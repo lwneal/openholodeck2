@@ -5,14 +5,16 @@
 </head>
 <body>
     <h1>WebRTC Data Channel Example</h1>
-    <pre id="output"></pre>
+    <div id="console"></div>
 
     <script>
-        const outputElement = document.getElementById('output');
         let ws, pc, dataChannel;
 
         function log(message) {
-            outputElement.textContent += message + '\n';
+            let consoleEl = document.getElementById('console');
+            let line = document.createElement('p');
+            line.innerText = message;
+            consoleEl.appendChild(line);
         }
 
         function setupWebSocket() {
@@ -44,8 +46,8 @@
             };
 
             ws.onclose = () => {
-                log('WebSocket connection closed, retrying in 5 seconds...');
-                setTimeout(setupWebSocket, 5000);
+                log('WebSocket connection closed, retrying...');
+                setTimeout(setupWebSocket, 1000);
             };
 
             ws.onerror = error => {
