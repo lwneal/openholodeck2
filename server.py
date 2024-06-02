@@ -9,6 +9,10 @@ clients = set()
 async def index():
     return await send_from_directory('static', 'client.html')
 
+@app.route('/<path:path>')
+async def static_files(path):
+    return await send_from_directory('static', path)
+
 @app.websocket('/ws')
 async def ws():
     global clients
