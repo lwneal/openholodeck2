@@ -12,6 +12,7 @@
 
         function log(...args) {
             let message = args.join(' ');
+            console.log(message);
             let timestamp = new Date().toISOString().substr(11, 8);
             let consoleEl = document.getElementById('console');
             let line = document.createElement('pre');
@@ -24,6 +25,7 @@
         }
 
         function setupWebSocket() {
+            log('setupWebSocket()');
             let proto = location.protocol === 'https:' ? 'wss' : 'ws';
             ws = new WebSocket(proto + '://' + location.host + '/ws');
             
@@ -63,6 +65,7 @@
         }
 
         async function createConnection() {
+            log('createConnection()');
             pc = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
             });
@@ -91,6 +94,7 @@
         }
 
         function setupDataChannel() {
+            log('setupDataChannel()');
             dataChannel.onopen = () => {
                 log('Data Channel Opened');
                 setInterval(() => {
