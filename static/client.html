@@ -10,11 +10,17 @@
     <script>
         let ws, pc, dataChannel;
 
-        function log(message) {
+        function log(...args) {
+            let message = args.join(' ');
+            let timestamp = new Date().toISOString().substr(11, 8);
             let consoleEl = document.getElementById('console');
-            let line = document.createElement('p');
-            line.innerText = message;
+            let line = document.createElement('pre');
+            line.innerText = `[${timestamp}] ${message}`;
             consoleEl.appendChild(line);
+            let maxLines = 30;
+            while (consoleEl.childNodes.length > maxLines) {
+                consoleEl.removeChild(consoleEl.firstChild);
+            }
         }
 
         function setupWebSocket() {
