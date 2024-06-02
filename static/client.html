@@ -48,7 +48,7 @@
                     try {
                         await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
                     } catch (e) {
-                        console.error('Error adding received ice candidate', e);
+                        log('Error adding received ice candidate', e);
                     }
                 }
             };
@@ -89,7 +89,7 @@
                 await pc.setLocalDescription(offer);
                 ws.send(JSON.stringify({ 'sdp': pc.localDescription }));
             } catch (e) {
-                console.error('Failed to create offer:', e);
+                log('Failed to create offer:', e);
             }
         }
 
